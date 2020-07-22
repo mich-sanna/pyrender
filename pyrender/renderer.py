@@ -97,7 +97,7 @@ class Renderer(object):
     def point_size(self, value):
         self._point_size = float(value)
 
-    def render(self, scene, flags, seg_node_map=None):
+    def render(self, scene, flags, seg_node_map=None, no_rebind_lights=False):
         """Render a scene with the given set of flags.
 
         Parameters
@@ -141,7 +141,7 @@ class Renderer(object):
                     self._shadow_mapping_pass(scene, ln, flags)
 
         # Make forward pass
-        retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map)
+        retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, no_rebind_lights=no_rebind_lights)
 
         # If necessary, make normals pass
         if flags & (RenderFlags.VERTEX_NORMALS | RenderFlags.FACE_NORMALS):
@@ -321,7 +321,7 @@ class Renderer(object):
     # Rendering passes
     ###########################################################################
 
-    def _forward_pass(self, scene, flags, seg_node_map=None):
+    def _forward_pass(self, scene, flags, seg_node_map=None, no_rebind_lights=False):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags)
 
@@ -381,8 +381,9 @@ class Renderer(object):
                     program.set_uniform('color', color)
 
                 # Next, bind the lighting
-                if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.FLAT or
-                        flags & RenderFlags.SEG):
+                if not no_rebind_lights and not (flags & RenderFlags.DEPTH_ONLY or
+                                                 flags & RenderFlags.FLAT or
+                                                 flags & RenderFlags.SEG):
                     self._bind_lighting(scene, program, node, flags)
 
                 # Finally, bind and draw the primitive

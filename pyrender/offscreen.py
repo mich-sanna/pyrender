@@ -60,7 +60,7 @@ class OffscreenRenderer(object):
     def point_size(self, value):
         self._point_size = float(value)
 
-    def render(self, scene, flags=RenderFlags.NONE, seg_node_map=None):
+    def render(self, scene, flags=RenderFlags.NONE, seg_node_map=None, no_rebind_lights=False):
         """Render a scene with the given set of flags.
 
         Parameters
@@ -99,9 +99,9 @@ class OffscreenRenderer(object):
 
         if self._platform.supports_framebuffers():
             flags |= RenderFlags.OFFSCREEN
-            retval = self._renderer.render(scene, flags, seg_node_map)
+            retval = self._renderer.render(scene, flags, seg_node_map, no_rebind_lights=no_rebind_lights)
         else:
-            self._renderer.render(scene, flags, seg_node_map)
+            self._renderer.render(scene, flags, seg_node_map, no_rebind_lights=no_rebind_lights)
             depth = self._renderer.read_depth_buf()
             if flags & RenderFlags.DEPTH_ONLY:
                 retval = depth
