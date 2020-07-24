@@ -1,6 +1,7 @@
 freetype-py
 imageio
 networkx
+numba
 numpy
 Pillow
 pyglet==1.4.0a1

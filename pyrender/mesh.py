@@ -97,19 +97,19 @@ class Mesh(object):
         """(3,) float : The centroid of the mesh's axis-aligned bounding box
         (AABB).
         """
-        return np.mean(self.bounds, axis=0)
+        return (self.bounds[1] + self.bounds[0]) / 2.
 
     @property
     def extents(self):
         """(3,) float : The lengths of the axes of the mesh's AABB.
         """
-        return np.diff(self.bounds, axis=0).reshape(-1)
+        return self.bounds[1] - self.bounds[0]
 
     @property
     def scale(self):
         """(3,) float : The length of the diagonal of the mesh's AABB.
         """
-        return np.linalg.norm(self.extents)
+        return (self.extents[0] ** 2 + self.extents[1] ** 2 + self.extents[2] ** 2) ** 0.5
 
     @property
     def is_transparent(self):

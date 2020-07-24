@@ -377,7 +377,7 @@ class SpotLight(Light):
         return PerspectiveCamera(
             znear=0.01 * scene_scale,
             zfar=10 * scene_scale,
-            yfov=np.clip(2 * self.outerConeAngle + np.pi / 16.0, 0.0, np.pi),
+            yfov=min(max(2 * self.outerConeAngle + np.pi / 16.0, 0.0), np.pi),
             aspectRatio=1.0
         )
 
