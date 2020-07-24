@@ -4,7 +4,7 @@ networkx
 numba
 numpy
 Pillow
-pyglet==1.4.0a1
+pyglet
 PyOpenGL
 PyOpenGL_accelerate
 six
