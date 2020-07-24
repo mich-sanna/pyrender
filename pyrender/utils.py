@@ -13,6 +13,10 @@ def dot_nla_jit(a, b):
     return np.dot(a, b)
 
 
+def norm_vec3(a):
+    return (a[0] ** 2 + a[1] ** 2 + a[2] ** 2) ** 0.5
+
+
 def format_color_vector(value, length):
     """Format a color vector.
     """

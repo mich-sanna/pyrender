@@ -14,7 +14,7 @@ from .shader_program import ShaderProgramCache
 from .material import MetallicRoughnessMaterial, SpecularGlossinessMaterial
 from .light import PointLight, SpotLight, DirectionalLight
 from .font import FontCache
-from .utils import format_color_vector, inv_nla_jit
+from .utils import format_color_vector, inv_nla_jit, norm_vec3
 
 from OpenGL.GL import *
 
@@ -707,10 +707,10 @@ class Renderer(object):
 
         # TODO BETTER SORTING METHOD
         trans_nodes.sort(
-            key=lambda n: -np.linalg.norm(scene.get_pose(n)[:3,3] - cam_loc)
+            key=lambda n: -norm_vec3(scene.get_pose(n)[:3,3] - cam_loc)
         )
         solid_nodes.sort(
-            key=lambda n: -np.linalg.norm(scene.get_pose(n)[:3,3] - cam_loc)
+            key=lambda n: -norm_vec3(scene.get_pose(n)[:3,3] - cam_loc)
         )
 
         return solid_nodes + trans_nodes
