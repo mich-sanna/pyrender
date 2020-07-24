@@ -124,6 +124,8 @@ class Renderer(object):
         # Update context with meshes and textures
         self._update_context(scene, flags)
 
+        sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
+
         # Render necessary shadow maps
         if not bool(flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG):
             for ln in scene.light_nodes:
@@ -138,14 +140,14 @@ class Renderer(object):
                         bool(flags & RenderFlags.SHADOWS_POINT)):
                     take_pass = True
                 if take_pass:
-                    self._shadow_mapping_pass(scene, ln, flags)
+                    self._shadow_mapping_pass(scene, ln, flags, sorted_mesh_nodes)
 
         # Make forward pass
-        retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map)
+        retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, sorted_mesh_nodes=sorted_mesh_nodes)
 
         # If necessary, make normals pass
         if flags & (RenderFlags.VERTEX_NORMALS | RenderFlags.FACE_NORMALS):
-            self._normals_pass(scene, flags)
+            self._normals_pass(scene, flags, sorted_mesh_nodes=sorted_mesh_nodes)
 
         # Update camera settings for retrieving depth buffers
         self._latest_znear = scene.main_camera_node.camera.znear
@@ -321,7 +323,7 @@ class Renderer(object):
     # Rendering passes
     ###########################################################################
 
-    def _forward_pass(self, scene, flags, seg_node_map=None):
+    def _forward_pass(self, scene, flags, seg_node_map=None, sorted_mesh_nodes=None):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags)
 
@@ -343,9 +345,12 @@ class Renderer(object):
         # Set up camera matrices
         V, P = self._get_camera_matrices(scene)
 
+        if sorted_mesh_nodes is None:
+            sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
+
         program = None
         # Now, render each object in sorted order
-        for node in self._sorted_mesh_nodes(scene):
+        for node in sorted_mesh_nodes:
             mesh = node.mesh
 
             # Skip the mesh if it's not visible
@@ -405,7 +410,7 @@ class Renderer(object):
         else:
             return
 
-    def _shadow_mapping_pass(self, scene, light_node, flags):
+    def _shadow_mapping_pass(self, scene, light_node, flags, sorted_mesh_nodes=None):
         light = light_node.light
 
         # Set up viewport for render
@@ -414,8 +419,11 @@ class Renderer(object):
         # Set up camera matrices
         V, P = self._get_light_cam_matrices(scene, light_node, flags)
 
+        if sorted_mesh_nodes is None:
+            sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
+
         # Now, render each object in sorted order
-        for node in self._sorted_mesh_nodes(scene):
+        for node in sorted_mesh_nodes:
             mesh = node.mesh
 
             # Skip the mesh if it's not visible
@@ -451,7 +459,7 @@ class Renderer(object):
             program._unbind()
         glFlush()
 
-    def _normals_pass(self, scene, flags):
+    def _normals_pass(self, scene, flags, sorted_mesh_nodes=None):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags)
         program = None
@@ -459,8 +467,11 @@ class Renderer(object):
         # Set up camera matrices
         V, P = self._get_camera_matrices(scene)
 
+        if sorted_mesh_nodes is None:
+            sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
+
         # Now, render each object in sorted order
-        for node in self._sorted_mesh_nodes(scene):
+        for node in sorted_mesh_nodes:
             mesh = node.mesh
 
             # Skip the mesh if it's not visible
@@ -1208,12 +1219,15 @@ class Renderer(object):
     # Shadowmap Debugging
     ###########################################################################
 
-    def _forward_pass_no_reset(self, scene, flags):
+    def _forward_pass_no_reset(self, scene, flags, sorted_mesh_nodes=None):
         # Set up camera matrices
         V, P = self._get_camera_matrices(scene)
 
+        if sorted_mesh_nodes is None:
+            sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
+
         # Now, render each object in sorted order
-        for node in self._sorted_mesh_nodes(scene):
+        for node in sorted_mesh_nodes:
             mesh = node.mesh
 
             # Skip the mesh if it's not visible
