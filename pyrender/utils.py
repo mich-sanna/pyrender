@@ -1,5 +1,16 @@
 import numpy as np
 from PIL import Image
+import numba
+
+
+@numba.njit
+def inv_nla_jit(a):
+    return np.linalg.inv(a)
+
+
+@numba.njit
+def dot_nla_jit(a, b):
+    return np.dot(a, b)
 
 
 def format_color_vector(value, length):

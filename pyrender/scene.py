@@ -11,7 +11,7 @@ from .mesh import Mesh
 from .camera import Camera
 from .light import Light, PointLight, DirectionalLight, SpotLight
 from .node import Node
-from .utils import format_color_vector
+from .utils import format_color_vector, dot_nla_jit
 
 
 class Scene(object):
@@ -239,19 +239,19 @@ class Scene(object):
         """(3,) float : The centroid of the scene's axis-aligned bounding box
         (AABB).
         """
-        return np.mean(self.bounds, axis=0)
+        return (self.bounds[1] + self.bounds[0]) / 2.
 
     @property
     def extents(self):
         """(3,) float : The lengths of the axes of the scene's AABB.
         """
-        return np.diff(self.bounds, axis=0).reshape(-1)
+        return self.bounds[1] - self.bounds[0]
 
     @property
     def scale(self):
         """(3,) float : The length of the diagonal of the scene's AABB.
         """
-        return np.linalg.norm(self.extents)
+        return (self.extents[0] ** 2 + self.extents[1] ** 2 + self.extents[2] ** 2) ** 0.5
 
     def add(self, obj, name=None, pose=None,
             parent_node=None, parent_name=None):
@@ -459,7 +459,8 @@ class Scene(object):
         # Traverse from from_node to to_node
         pose = np.eye(4)
         for n in path[:-1]:
-            pose = np.dot(n.matrix, pose)
+            # pose = np.dot(n.matrix, pose)
+            pose = dot_nla_jit(n.matrix, pose)
 
         return pose
 
