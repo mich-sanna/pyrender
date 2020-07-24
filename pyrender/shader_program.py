@@ -109,6 +109,8 @@ class ShaderProgram(object):
         # DEBUG
         # self._unif_map = {}
 
+        self._unif_loc = None
+
     def _add_to_context(self):
         if self._program_id is not None:
             raise ValueError('Shader program already in context')
@@ -139,6 +141,8 @@ class ShaderProgram(object):
         # Unbind empty VAO PYOPENGL BUG
         glBindVertexArray(0)
 
+        self._unif_loc = {}
+
     def _in_context(self):
         return self._program_id is not None
 
@@ -148,6 +152,8 @@ class ShaderProgram(object):
             glDeleteVertexArrays(1, [self._vao_id])
             self._program_id = None
             self._vao_id = None
+
+        self._unif_loc = None
 
     def _load(self, shader_filename):
         path, _ = os.path.split(shader_filename)
@@ -215,7 +221,10 @@ class ShaderProgram(object):
         try:
             # DEBUG
             # self._unif_map[name] = 1, (1,)
-            loc = glGetUniformLocation(self._program_id, name)
+            if name not in self._unif_loc:
+                self._unif_loc[name] = glGetUniformLocation(self._program_id, name)
+
+            loc = self._unif_loc[name]
 
             if loc == -1:
                 raise ValueError('Invalid shader variable: {}'.format(name))
