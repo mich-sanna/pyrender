@@ -676,6 +676,10 @@ class Renderer(object):
 
                     light_number = program_cached_light_nodes[n]
                     plc_used_numbers.add(light_number)
+
+                    b = 'point_lights[{}].'.format(light_number)
+                    shadow = bool(flags & RenderFlags.SHADOWS_POINT)
+
                 elif isinstance(light, SpotLight):
                     if slc == max_n_lights[1]:
                         continue
@@ -686,6 +690,10 @@ class Renderer(object):
 
                     light_number = program_cached_light_nodes[n]
                     slc_used_numbers.add(light_number)
+
+                    b = 'spot_lights[{}].'.format(light_number)
+                    shadow = bool(flags & RenderFlags.SHADOWS_SPOT)
+
                 else:
                     if dlc == max_n_lights[0]:
                         continue
@@ -696,6 +704,13 @@ class Renderer(object):
 
                     light_number = program_cached_light_nodes[n]
                     dlc_used_numbers.add(light_number)
+
+                    b = 'directional_lights[{}].'.format(light_number)
+                    shadow = bool(flags & RenderFlags.SHADOWS_DIRECTIONAL)
+
+                if shadow:
+                    self._bind_texture(light.shadow_texture,
+                                       b + 'shadow_map', program)
 
                 program_current_light_nodes[n] = light_number
 
