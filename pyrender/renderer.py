@@ -730,7 +730,7 @@ class Renderer(object):
     def _sorted_nodes_by_distance(self, scene, nodes, compare_node):
         nodes = list(nodes)
         compare_posn = scene.get_pose(compare_node)[:3,3]
-        nodes.sort(key=lambda n: -norm_vec3(
+        nodes.sort(key=lambda n: norm_vec3(
             scene.get_pose(n)[:3,3] - compare_posn)
         )
         return nodes
