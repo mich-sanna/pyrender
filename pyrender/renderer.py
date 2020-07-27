@@ -350,6 +350,8 @@ class Renderer(object):
             sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
 
         program = None
+        program_cached_light_nodes = {}
+
         # Now, render each object in sorted order
         for node in sorted_mesh_nodes:
             mesh = node.mesh
@@ -389,7 +391,8 @@ class Renderer(object):
                 # Next, bind the lighting
                 if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.FLAT or
                         flags & RenderFlags.SEG):
-                    self._bind_lighting(scene, program, node, flags)
+                    program_cached_light_nodes[program] = self._bind_lighting(scene, program, node, flags,
+                                                                              program_cached_light_nodes.get(program, None))
 
                 # Finally, bind and draw the primitive
                 self._bind_and_draw_primitive(
@@ -630,7 +633,7 @@ class Renderer(object):
         # Unbind mesh buffers
         primitive._unbind()
 
-    def _bind_lighting(self, scene, program, node, flags):
+    def _bind_lighting(self, scene, program, node, flags, program_cached_light_nodes=None):
         """Bind all lighting uniform values for a scene.
         """
         max_n_lights = self._compute_max_n_lights(flags)
@@ -642,9 +645,10 @@ class Renderer(object):
         program.set_uniform('n_directional_lights', n_d)
         program.set_uniform('n_spot_lights', n_s)
         program.set_uniform('n_point_lights', n_p)
-        plc = 0
-        slc = 0
-        dlc = 0
+
+        plc_used_numbers = set()
+        slc_used_numbers = set()
+        dlc_used_numbers = set()
 
         light_nodes = scene.light_nodes
         if (len(scene.directional_light_nodes) > max_n_lights[0] or
@@ -654,24 +658,74 @@ class Renderer(object):
                 scene, scene.light_nodes, node
             )
 
+        program_current_light_nodes = {}
+        if program_cached_light_nodes is not None:
+            plc = 0
+            slc = 0
+            dlc = 0
+
+            for n in light_nodes:
+                light = n.light
+                if isinstance(light, PointLight):
+                    if plc == max_n_lights[2]:
+                        continue
+                    plc += 1
+
+                    if n not in program_cached_light_nodes:
+                        continue
+
+                    light_number = program_cached_light_nodes[n]
+                    plc_used_numbers.add(light_number)
+                elif isinstance(light, SpotLight):
+                    if slc == max_n_lights[1]:
+                        continue
+                    slc += 1
+
+                    if n not in program_cached_light_nodes:
+                        continue
+
+                    light_number = program_cached_light_nodes[n]
+                    slc_used_numbers.add(light_number)
+                else:
+                    if dlc == max_n_lights[0]:
+                        continue
+                    dlc += 1
+
+                    if n not in program_cached_light_nodes:
+                        continue
+
+                    light_number = program_cached_light_nodes[n]
+                    dlc_used_numbers.add(light_number)
+
+                program_current_light_nodes[n] = light_number
+
         for n in light_nodes:
+            if n in program_current_light_nodes:
+                continue
+
             light = n.light
             pose = scene.get_pose(n)
             position = pose[:3,3]
             direction = -pose[:3,2]
 
             if isinstance(light, PointLight):
-                if plc == max_n_lights[2]:
+                if len(plc_used_numbers) == max_n_lights[2]:
                     continue
-                b = 'point_lights[{}].'.format(plc)
-                plc += 1
+
+                light_number = [i for i in range(max_n_lights[2]) if i not in plc_used_numbers][0]
+                b = 'point_lights[{}].'.format(light_number)
+                plc_used_numbers.add(light_number)
+
                 shadow = bool(flags & RenderFlags.SHADOWS_POINT)
                 program.set_uniform(b + 'position', position)
             elif isinstance(light, SpotLight):
-                if slc == max_n_lights[1]:
+                if len(slc_used_numbers) == max_n_lights[1]:
                     continue
-                b = 'spot_lights[{}].'.format(slc)
-                slc += 1
+
+                light_number = [i for i in range(max_n_lights[1]) if i not in slc_used_numbers][0]
+                b = 'spot_lights[{}].'.format(light_number)
+                slc_used_numbers.add(light_number)
+
                 shadow = bool(flags & RenderFlags.SHADOWS_SPOT)
                 las = 1.0 / max(0.001, np.cos(light.innerConeAngle) -
                                 np.cos(light.outerConeAngle))
@@ -681,10 +735,13 @@ class Renderer(object):
                 program.set_uniform(b + 'light_angle_scale', las)
                 program.set_uniform(b + 'light_angle_offset', lao)
             else:
-                if dlc == max_n_lights[0]:
+                if len(dlc_used_numbers) == max_n_lights[0]:
                     continue
-                b = 'directional_lights[{}].'.format(dlc)
-                dlc += 1
+
+                light_number = [i for i in range(max_n_lights[0]) if i not in dlc_used_numbers][0]
+                b = 'directional_lights[{}].'.format(light_number)
+                dlc_used_numbers.add(light_number)
+
                 shadow = bool(flags & RenderFlags.SHADOWS_DIRECTIONAL)
                 program.set_uniform(b + 'direction', direction)
 
@@ -705,6 +762,11 @@ class Renderer(object):
                     raise NotImplementedError(
                         'Point light shadows not implemented'
                     )
+
+            assert n not in program_current_light_nodes
+            program_current_light_nodes[n] = light_number
+
+        return program_current_light_nodes
 
     def _sorted_mesh_nodes(self, scene):
         cam_loc = scene.get_pose(scene.main_camera_node)[:3,3]
@@ -1227,6 +1289,8 @@ class Renderer(object):
         if sorted_mesh_nodes is None:
             sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
 
+        program_cached_light_nodes = {}
+
         # Now, render each object in sorted order
         for node in sorted_mesh_nodes:
             mesh = node.mesh
@@ -1252,7 +1316,8 @@ class Renderer(object):
 
                 # Next, bind the lighting
                 if not flags & RenderFlags.DEPTH_ONLY and not flags & RenderFlags.FLAT:
-                    self._bind_lighting(scene, program, node, flags)
+                    program_cached_light_nodes[program] = self._bind_lighting(scene, program, node, flags,
+                                                                              program_cached_light_nodes.get(program, None))
 
                 # Finally, bind and draw the primitive
                 self._bind_and_draw_primitive(
@@ -1261,7 +1326,8 @@ class Renderer(object):
                     program=program,
                     flags=flags
                 )
-                self._reset_active_textures()
+
+        self._reset_active_textures()
 
         # Unbind the shader and flush the output
         if program is not None:
