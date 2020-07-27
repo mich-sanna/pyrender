@@ -381,10 +381,9 @@ class Renderer(object):
                     program.set_uniform('color', color)
 
                 # Next, bind the lighting
-                if not no_rebind_lights and not (flags & RenderFlags.DEPTH_ONLY or
-                                                 flags & RenderFlags.FLAT or
-                                                 flags & RenderFlags.SEG):
-                    self._bind_lighting(scene, program, node, flags)
+                if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.FLAT or
+                        flags & RenderFlags.SEG):
+                    self._bind_lighting(scene, program, node, flags, really_bind=not no_rebind_lights)
 
                 # Finally, bind and draw the primitive
                 self._bind_and_draw_primitive(
@@ -619,7 +618,7 @@ class Renderer(object):
         # Unbind mesh buffers
         primitive._unbind()
 
-    def _bind_lighting(self, scene, program, node, flags):
+    def _bind_lighting(self, scene, program, node, flags, really_bind=True):
         """Bind all lighting uniform values for a scene.
         """
         max_n_lights = self._compute_max_n_lights(flags)
@@ -654,30 +653,34 @@ class Renderer(object):
                 b = 'point_lights[{}].'.format(plc)
                 plc += 1
                 shadow = bool(flags & RenderFlags.SHADOWS_POINT)
-                program.set_uniform(b + 'position', position)
+                if really_bind:
+                    program.set_uniform(b + 'position', position)
             elif isinstance(light, SpotLight):
                 if slc == max_n_lights[1]:
                     continue
                 b = 'spot_lights[{}].'.format(slc)
                 slc += 1
                 shadow = bool(flags & RenderFlags.SHADOWS_SPOT)
-                las = 1.0 / max(0.001, np.cos(light.innerConeAngle) -
-                                np.cos(light.outerConeAngle))
-                lao = -np.cos(light.outerConeAngle) * las
-                program.set_uniform(b + 'direction', direction)
-                program.set_uniform(b + 'position', position)
-                program.set_uniform(b + 'light_angle_scale', las)
-                program.set_uniform(b + 'light_angle_offset', lao)
+                if really_bind:
+                    las = 1.0 / max(0.001, np.cos(light.innerConeAngle) -
+                                    np.cos(light.outerConeAngle))
+                    lao = -np.cos(light.outerConeAngle) * las
+                    program.set_uniform(b + 'direction', direction)
+                    program.set_uniform(b + 'position', position)
+                    program.set_uniform(b + 'light_angle_scale', las)
+                    program.set_uniform(b + 'light_angle_offset', lao)
             else:
                 if dlc == max_n_lights[0]:
                     continue
                 b = 'directional_lights[{}].'.format(dlc)
                 dlc += 1
                 shadow = bool(flags & RenderFlags.SHADOWS_DIRECTIONAL)
-                program.set_uniform(b + 'direction', direction)
+                if really_bind:
+                    program.set_uniform(b + 'direction', direction)
 
-            program.set_uniform(b + 'color', light.color)
-            program.set_uniform(b + 'intensity', light.intensity)
+            if really_bind:
+                program.set_uniform(b + 'color', light.color)
+                program.set_uniform(b + 'intensity', light.intensity)
             # if light.range is not None:
             #     program.set_uniform(b + 'range', light.range)
             # else:
@@ -687,8 +690,9 @@ class Renderer(object):
                 self._bind_texture(light.shadow_texture,
                                    b + 'shadow_map', program)
                 if not isinstance(light, PointLight):
-                    V, P = self._get_light_cam_matrices(scene, n, flags)
-                    program.set_uniform(b + 'light_matrix', P.dot(V))
+                    if really_bind:
+                        V, P = self._get_light_cam_matrices(scene, n, flags)
+                        program.set_uniform(b + 'light_matrix', P.dot(V))
                 else:
                     raise NotImplementedError(
                         'Point light shadows not implemented'
