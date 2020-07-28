@@ -99,9 +99,9 @@ class OffscreenRenderer(object):
 
         if self._platform.supports_framebuffers():
             flags |= RenderFlags.OFFSCREEN
-            retval = self._renderer.render(scene, flags, seg_node_map, no_rebind_lights=no_rebind_lights)
+            retval = self._renderer.render(scene, flags, seg_node_map, skip_bind_lighting=no_rebind_lights)
         else:
-            self._renderer.render(scene, flags, seg_node_map, no_rebind_lights=no_rebind_lights)
+            self._renderer.render(scene, flags, seg_node_map, skip_bind_lighting=no_rebind_lights)
             depth = self._renderer.read_depth_buf()
             if flags & RenderFlags.DEPTH_ONLY:
                 retval = depth

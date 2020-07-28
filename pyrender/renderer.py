@@ -97,7 +97,7 @@ class Renderer(object):
     def point_size(self, value):
         self._point_size = float(value)
 
-    def render(self, scene, flags, seg_node_map=None, no_rebind_lights=False):
+    def render(self, scene, flags, seg_node_map=None, skip_bind_lighting=False):
         """Render a scene with the given set of flags.
 
         Parameters
@@ -141,7 +141,7 @@ class Renderer(object):
                     self._shadow_mapping_pass(scene, ln, flags)
 
         # Make forward pass
-        retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, no_rebind_lights=no_rebind_lights)
+        retval = self._forward_pass(scene, flags, seg_node_map=seg_node_map, skip_bind_lighting=skip_bind_lighting)
 
         # If necessary, make normals pass
         if flags & (RenderFlags.VERTEX_NORMALS | RenderFlags.FACE_NORMALS):
@@ -321,7 +321,7 @@ class Renderer(object):
     # Rendering passes
     ###########################################################################
 
-    def _forward_pass(self, scene, flags, seg_node_map=None, no_rebind_lights=False):
+    def _forward_pass(self, scene, flags, seg_node_map=None, skip_bind_lighting=False):
         # Set up viewport for render
         self._configure_forward_pass_viewport(flags)
 
@@ -383,7 +383,7 @@ class Renderer(object):
                 # Next, bind the lighting
                 if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.FLAT or
                         flags & RenderFlags.SEG):
-                    self._bind_lighting(scene, program, node, flags, really_bind=not no_rebind_lights)
+                    self._bind_lighting(scene, program, node, flags, set_uniforms=not skip_bind_lighting)
 
                 # Finally, bind and draw the primitive
                 self._bind_and_draw_primitive(
@@ -618,7 +618,7 @@ class Renderer(object):
         # Unbind mesh buffers
         primitive._unbind()
 
-    def _bind_lighting(self, scene, program, node, flags, really_bind=True):
+    def _bind_lighting(self, scene, program, node, flags, set_uniforms=True):
         """Bind all lighting uniform values for a scene.
         """
         max_n_lights = self._compute_max_n_lights(flags)
@@ -643,9 +643,10 @@ class Renderer(object):
 
         for n in light_nodes:
             light = n.light
-            pose = scene.get_pose(n)
-            position = pose[:3,3]
-            direction = -pose[:3,2]
+            if set_uniforms:
+                pose = scene.get_pose(n)
+                position = pose[:3,3]
+                direction = -pose[:3,2]
 
             if isinstance(light, PointLight):
                 if plc == max_n_lights[2]:
@@ -653,7 +654,7 @@ class Renderer(object):
                 b = 'point_lights[{}].'.format(plc)
                 plc += 1
                 shadow = bool(flags & RenderFlags.SHADOWS_POINT)
-                if really_bind:
+                if set_uniforms:
                     program.set_uniform(b + 'position', position)
             elif isinstance(light, SpotLight):
                 if slc == max_n_lights[1]:
@@ -661,7 +662,7 @@ class Renderer(object):
                 b = 'spot_lights[{}].'.format(slc)
                 slc += 1
                 shadow = bool(flags & RenderFlags.SHADOWS_SPOT)
-                if really_bind:
+                if set_uniforms:
                     las = 1.0 / max(0.001, np.cos(light.innerConeAngle) -
                                     np.cos(light.outerConeAngle))
                     lao = -np.cos(light.outerConeAngle) * las
@@ -675,10 +676,10 @@ class Renderer(object):
                 b = 'directional_lights[{}].'.format(dlc)
                 dlc += 1
                 shadow = bool(flags & RenderFlags.SHADOWS_DIRECTIONAL)
-                if really_bind:
+                if set_uniforms:
                     program.set_uniform(b + 'direction', direction)
 
-            if really_bind:
+            if set_uniforms:
                 program.set_uniform(b + 'color', light.color)
                 program.set_uniform(b + 'intensity', light.intensity)
             # if light.range is not None:
@@ -690,7 +691,7 @@ class Renderer(object):
                 self._bind_texture(light.shadow_texture,
                                    b + 'shadow_map', program)
                 if not isinstance(light, PointLight):
-                    if really_bind:
+                    if set_uniforms:
                         V, P = self._get_light_cam_matrices(scene, n, flags)
                         program.set_uniform(b + 'light_matrix', P.dot(V))
                 else:
