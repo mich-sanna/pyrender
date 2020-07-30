@@ -79,9 +79,9 @@ class OffscreenRenderer(object):
         color_im : (h, w, 3) uint8 or (h, w, 4) uint8
             The color buffer in RGB format, or in RGBA format if
             :attr:`.RenderFlags.RGBA` is set.
-            Not returned if flags includes :attr:`.RenderFlags.DEPTH_ONLY`.
         depth_im : (h, w) float32
             The depth buffer in linear units.
+            Returned only if flags includes :attr:`.RenderFlags.DEPTH`.
         """
         self._platform.make_current()
         # If platform does not support dynamically-resizing framebuffers,
@@ -102,11 +102,10 @@ class OffscreenRenderer(object):
             retval = self._renderer.render(scene, flags, seg_node_map)
         else:
             self._renderer.render(scene, flags, seg_node_map)
-            depth = self._renderer.read_depth_buf()
-            if flags & RenderFlags.DEPTH_ONLY:
-                retval = depth
-            else:
-                color = self._renderer.read_color_buf()
+            color = self._renderer.read_color_buf()
+            retval = color
+            if flags & RenderFlags.DEPTH:
+                depth = self._renderer.read_depth_buf()
                 retval = color, depth
 
         # Make the platform not current

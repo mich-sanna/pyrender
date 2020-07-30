@@ -127,7 +127,7 @@ class Renderer(object):
         sorted_mesh_nodes = self._sorted_mesh_nodes(scene)
 
         # Render necessary shadow maps
-        if not bool(flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG):
+        if not bool(flags & RenderFlags.SEG):
             for ln in scene.light_nodes:
                 take_pass = False
                 if (isinstance(ln.light, DirectionalLight) and
@@ -389,8 +389,7 @@ class Renderer(object):
                     program.set_uniform('color', color)
 
                 # Next, bind the lighting
-                if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.FLAT or
-                        flags & RenderFlags.SEG):
+                if not (flags & RenderFlags.FLAT or flags & RenderFlags.SEG):
                     program_cached_light_nodes[program] = self._bind_lighting(scene, program, node, flags,
                                                                               program_cached_light_nodes.get(program, None))
 
@@ -454,7 +453,7 @@ class Renderer(object):
                     primitive=primitive,
                     pose=scene.get_pose(node),
                     program=program,
-                    flags=RenderFlags.DEPTH_ONLY
+                    flags=RenderFlags.SEG
                 )
                 self._reset_active_textures()
 
@@ -510,7 +509,7 @@ class Renderer(object):
                     primitive=primitive,
                     pose=scene.get_pose(node),
                     program=program,
-                    flags=RenderFlags.DEPTH_ONLY
+                    flags=RenderFlags.SEG
                 )
                 self._reset_active_textures()
 
@@ -531,7 +530,7 @@ class Renderer(object):
         primitive._bind()
 
         # Bind mesh material
-        if not (flags & RenderFlags.DEPTH_ONLY or flags & RenderFlags.SEG):
+        if not bool(flags & RenderFlags.SEG):
             material = primitive.material
 
             # Bind textures
@@ -991,7 +990,6 @@ class Renderer(object):
         defines = {}
 
         if (bool(program_flags & ProgramFlags.USE_MATERIAL) and
-                not flags & RenderFlags.DEPTH_ONLY and
                 not flags & RenderFlags.FLAT and
                 not flags & RenderFlags.SEG):
             vertex_shader = 'mesh.vert'
@@ -1228,11 +1226,34 @@ class Renderer(object):
             0, 0, width, height, 0, 0, width, height,
             GL_COLOR_BUFFER_BIT, GL_LINEAR
         )
-        glBlitFramebuffer(
-            0, 0, width, height, 0, 0, width, height,
-            GL_DEPTH_BUFFER_BIT, GL_NEAREST
-        )
+        if flags & RenderFlags.DEPTH:
+            glBlitFramebuffer(
+                0, 0, width, height, 0, 0, width, height,
+                GL_DEPTH_BUFFER_BIT, GL_NEAREST
+            )
         glBindFramebuffer(GL_READ_FRAMEBUFFER, self._main_fb)
+
+        # Read color
+        if flags & RenderFlags.RGBA:
+            color_buf = glReadPixels(
+                0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE
+            )
+            color_im = np.frombuffer(color_buf, dtype=np.uint8)
+            color_im = color_im.reshape((height, width, 4))
+        else:
+            color_buf = glReadPixels(
+                0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE
+            )
+            color_im = np.frombuffer(color_buf, dtype=np.uint8)
+            color_im = color_im.reshape((height, width, 3))
+        color_im = np.flip(color_im, axis=0)
+
+        # Resize for macos if needed
+        if sys.platform == 'darwin':
+            color_im = self._resize_image(color_im, True)
+
+        if not (flags & RenderFlags.DEPTH):
+            return color_im
 
         # Read depth
         depth_buf = glReadPixels(
@@ -1257,28 +1278,6 @@ class Renderer(object):
         # Resize for macos if needed
         if sys.platform == 'darwin':
             depth_im = self._resize_image(depth_im)
-
-        if flags & RenderFlags.DEPTH_ONLY:
-            return depth_im
-
-        # Read color
-        if flags & RenderFlags.RGBA:
-            color_buf = glReadPixels(
-                0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE
-            )
-            color_im = np.frombuffer(color_buf, dtype=np.uint8)
-            color_im = color_im.reshape((height, width, 4))
-        else:
-            color_buf = glReadPixels(
-                0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE
-            )
-            color_im = np.frombuffer(color_buf, dtype=np.uint8)
-            color_im = color_im.reshape((height, width, 3))
-        color_im = np.flip(color_im, axis=0)
-
-        # Resize for macos if needed
-        if sys.platform == 'darwin':
-            color_im = self._resize_image(color_im, True)
 
         return color_im, depth_im
 
@@ -1330,7 +1329,7 @@ class Renderer(object):
                 )
 
                 # Next, bind the lighting
-                if not flags & RenderFlags.DEPTH_ONLY and not flags & RenderFlags.FLAT:
+                if not (flags & RenderFlags.FLAT):
                     program_cached_light_nodes[program] = self._bind_lighting(scene, program, node, flags,
                                                                               program_cached_light_nodes.get(program, None))
 

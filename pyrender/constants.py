@@ -23,8 +23,8 @@ class RenderFlags(object):
     """
     NONE = 0
     """Normal PBR Render."""
-    DEPTH_ONLY = 1
-    """Only render the depth buffer."""
+    DEPTH = 1
+    """Additionally render the depth buffer."""
     OFFSCREEN = 2
     """Render offscreen and return the depth and (optionally) color buffers."""
     FLIP_WIREFRAME = 4
