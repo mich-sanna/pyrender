@@ -761,10 +761,11 @@ class Renderer(object):
 
             program.set_uniform(b + 'color', light.color)
             program.set_uniform(b + 'intensity', light.intensity)
-            # if light.range is not None:
-            #     program.set_uniform(b + 'range', light.range)
-            # else:
-            #     program.set_uniform(b + 'range', 0)
+            if not isinstance(light, DirectionalLight):
+                if light.range is not None:
+                    program.set_uniform(b + 'range', light.range / self._get_camera_range(scene))
+                else:
+                    program.set_uniform(b + 'range', 0)
 
             if shadow:
                 self._bind_texture(light.shadow_texture,
@@ -927,6 +928,10 @@ class Renderer(object):
         # V = np.linalg.inv(pose)  # V maps from world to camera
         V = inv_nla_jit(pose)
         return V, P
+
+    def _get_camera_range(self, scene):
+        main_camera_node = scene.main_camera_node
+        return main_camera_node.camera.zfar - main_camera_node.camera.znear
 
     ###########################################################################
     # Shader Program Management

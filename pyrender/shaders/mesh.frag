@@ -376,12 +376,13 @@ void main()
 
     for (int i = 0; i < n_point_lights; i++) {
         vec3 position = point_lights[i].position;
+        float range = spot_lights[i].range;
         vec3 v = normalize(cam_pos - frag_position); // Vector towards camera
         vec3 l = normalize(position - frag_position); // Vector towards light
 
         // Compute attenuation and radiance
         float dist = length(position - frag_position);
-        float attenuation = point_lights[i].intensity / (dist * dist);
+        float attenuation = point_lights[i].intensity / (dist * dist) * (dist < range || range == 0 ? 1. : 0.);
         vec3 radiance = attenuation * point_lights[i].color;
 
         // Compute outbound color
@@ -396,13 +397,14 @@ void main()
 
         // Compute attenuation and radiance
         vec3 direction = spot_lights[i].direction;
+        float range = spot_lights[i].range;
         float las = spot_lights[i].light_angle_scale;
         float lao = spot_lights[i].light_angle_offset;
         float dist = length(position - frag_position);
         float cd = clamp(dot(direction, -l), 0.0, 1.0);
         float attenuation = clamp(cd * las + lao, 0.0, 1.0);
         attenuation = attenuation * attenuation * spot_lights[i].intensity;
-        attenuation = attenuation / (dist * dist);
+        attenuation = attenuation / (dist * dist) * (dist < range || range == 0 ? 1. : 0.);
         vec3 radiance = attenuation * spot_lights[i].color;
 
         // Compute outbound color
